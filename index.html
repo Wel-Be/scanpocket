@@ -76,14 +76,26 @@ async function render(p,max,mode){
   const bm=await createImageBitmap(p.orig,{imageOrientation:'from-image'});
   const s0=Math.min(1,3000/Math.max(bm.width,bm.height)),W=Math.round(bm.width*s0),H=Math.round(bm.height*s0);
   let cv=mk(W,H);cv.getContext('2d').drawImage(bm,0,0,W,H);bm.close&&bm.close();
-  if(p.corners.some((v,i)=>Math.abs(v-DEF[i])>.002))cv=warp(cv,p.corners,max);
+  if(p.corners.some((v,i)=>Math.abs(v-DEF[i])>.002))cv=warp(cv,p.corners,max,cur.ar||'auto');
   else if(Math.max(W,H)>max){const s=max/Math.max(W,H),t=mk(Math.round(W*s),Math.round(H*s));t.getContext('2d').drawImage(cv,0,0,t.width,t.height);cv=t}
   const r=(p.rot||0)%4;
   if(r){const t=mk(r%2?cv.height:cv.width,r%2?cv.width:cv.height),x=t.getContext('2d');x.translate(t.width/2,t.height/2);x.rotate(r*Math.PI/2);x.drawImage(cv,-cv.width/2,-cv.height/2);cv=t}
   return filt(cv,p.enh,mode||'color')}
-function warp(src,c,max){
+function aspect(P,W,H,mode){
+  const e=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);let r=Math.max(e(P[0],P[1]),e(P[3],P[2]))/Math.max(e(P[0],P[3]),e(P[1],P[2]));
+  if(mode=='none')return r;
+  const[m1,m2,m3,m4]=[P[0],P[1],P[3],P[2]].map(p=>[p[0]-W/2,p[1]-H/2,1]),
+  cr=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]],dt=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2],
+  c14=cr(m1,m4),k2=dt(c14,m3)/dt(cr(m2,m4),m3),k3=dt(c14,m2)/dt(cr(m3,m4),m2);
+  if(isFinite(k2)&&isFinite(k3)&&(Math.abs(k2-1)>.02||Math.abs(k3-1)>.02)){
+    const n2=m2.map((v,i)=>k2*v-m1[i]),n3=m3.map((v,i)=>k3*v-m1[i]),f2=-(n2[0]*n3[0]+n2[1]*n3[1])/(n2[2]*n3[2]);
+    if(f2>0&&isFinite(f2)){const a=Math.sqrt(((n2[0]**2+n2[1]**2)/f2+n2[2]**2)/((n3[0]**2+n3[1]**2)/f2+n3[2]**2));if(a>.3&&a<3.3)r=a}}
+  if(mode=='a4')return r>1?Math.SQRT2:1/Math.SQRT2;
+  if(mode=='letter')return r>1?1.2941:1/1.2941;
+  const t=r>1?Math.SQRT2:1/Math.SQRT2;return Math.abs(Math.log(r/t))<.09?t:r}
+function warp(src,c,max,ar){
   const W=src.width,H=src.height,P=[0,1,2,3].map(i=>[c[i*2]*W,c[i*2+1]*H]),ds=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
-  let w=Math.max(ds(P[0],P[1]),ds(P[3],P[2])),h=Math.max(ds(P[0],P[3]),ds(P[1],P[2]));const s=Math.min(1,max/Math.max(w,h));w=Math.max(2,Math.round(w*s));h=Math.max(2,Math.round(h*s));
+  const w0=Math.max(ds(P[0],P[1]),ds(P[3],P[2])),h0=Math.max(ds(P[0],P[3]),ds(P[1],P[2])),S=Math.sqrt(w0*h0),r=aspect(P,W,H,ar);let w=S*Math.sqrt(r),h=S/Math.sqrt(r);const s=Math.min(1,max/Math.max(w,h));w=Math.max(2,Math.round(w*s));h=Math.max(2,Math.round(h*s));
   const[[x0,y0],[x1,y1],[x2,y2],[x3,y3]]=P,dx1=x1-x2,dx2=x3-x2,dx3=x0-x1+x2-x3,dy1=y1-y2,dy2=y3-y2,dy3=y0-y1+y2-y3,den=dx1*dy2-dx2*dy1||1,
   g=(dx3*dy2-dx2*dy3)/den,k=(dx1*dy3-dx3*dy1)/den,a=x1-x0+g*x1,b=x3-x0+k*x3,d=y1-y0+g*y1,e=y3-y0+k*y3;
   const sd=src.getContext('2d').getImageData(0,0,W,H).data,o=mk(w,h),ox=o.getContext('2d'),im=ox.createImageData(w,h),od=im.data;
@@ -189,6 +201,7 @@ async function drawEdit(){
   app.innerHTML=`<div class="row"><button data-a="back" style="flex:none">← 書類</button></div>
   <input id="nm" value="${esc(cur.name)}" placeholder="書類名" aria-label="書類名">
   <div class="row"><input id="ct" list="cl" value="${esc(cur.cat)}" aria-label="カテゴリ"><datalist id="cl">${CATS.map(c=>`<option value="${esc(c)}">`).join('')}</datalist><select id="dm" aria-label="書類全体の色モード">${opts(MODES,cur.mode)}</select></div>
+  <div class="row"><select id="ar" aria-label="用紙の縦横比">${opts({auto:'用紙の縦横比：自動（A4・B5などに補正）',a4:'用紙の縦横比：A4に固定',letter:'用紙の縦横比：レターに固定',none:'用紙の縦横比：補正しない'},cur.ar||'auto')}</select></div>
   ${pend?`<div class="pv"><span class="fr"><canvas id="pv"></canvas></span></div><div class="row"><button data-a="cancelp">やめる</button><button data-a="retakep">撮り直す</button><button class="pri" data-a="adopt">このページを採用</button></div>`
   :p?`<div class="pv"><span class="fr"><canvas id="pv"></canvas></span></div>
     <p class="sub" style="text-align:center">ページ ${sel+1} / ${cur.pages.length}</p>
@@ -225,7 +238,7 @@ async function backup(){
   if(!ds.length)return toast('バックアップする書類がありません');
   if(await ask(`概算サイズ：約${mb(est)}。ZIPは暗号化されません。端末の空き容量が足りない場合は失敗することがあります。作成しますか？`,['中止','作成'])!=1)return;
   try{$('res').textContent='作成中…';const files=[],man={app:'ScanPocket',v:1,docs:[]};
-    ds.forEach((d,i)=>{const md={id:d.id,name:d.name,cat:d.cat,mode:d.mode,created:d.created,updated:d.updated,status:d.status,thumb:null,pages:[]};
+    ds.forEach((d,i)=>{const md={id:d.id,name:d.name,cat:d.cat,mode:d.mode,ar:d.ar,created:d.created,updated:d.updated,status:d.status,thumb:null,pages:[]};
       if(d.thumb){md.thumb=`d${i}/t.jpg`;files.push({n:md.thumb,b:d.thumb})}
       d.pages.forEach((p,j)=>{const f=`d${i}/p${j}.bin`;files.push({n:f,b:p.orig});md.pages.push({f,type:p.orig.type,c:p.corners,rot:p.rot,enh:p.enh,mode:p.mode})});man.docs.push(md)});
     files.unshift({n:'manifest.json',b:new TextEncoder().encode(JSON.stringify(man))});
@@ -239,7 +252,7 @@ async function doRestore(){
   const ids=[...document.querySelectorAll('.rk:checked')].map(c=>+c.dataset.i);if(!ids.length)return toast('書類を選択してください');
   const {m,man}=restoreM,ex=await all(),names=new Set(ex.map(d=>d.name)),cats=new Map(ex.map(d=>[d.cat.trim().toLowerCase(),d.cat])),got=[];
   try{for(const i of ids){const d=man.docs[i];let nm=d.name,n=2;while(names.has(nm))nm=`${d.name} (${n++})`;names.add(nm);const k=d.cat.trim().toLowerCase();if(!cats.has(k))cats.set(k,d.cat.trim()||'未分類');
-    const doc={id:crypto.randomUUID(),name:nm,cat:cats.get(k)||'未分類',mode:d.mode,created:d.created,updated:d.updated,status:d.status,thumb:d.thumb&&m[d.thumb]?new Blob([m[d.thumb]],{type:'image/jpeg'}):null,
+    const doc={id:crypto.randomUUID(),name:nm,cat:cats.get(k)||'未分類',mode:d.mode,ar:d.ar,created:d.created,updated:d.updated,status:d.status,thumb:d.thumb&&m[d.thumb]?new Blob([m[d.thumb]],{type:'image/jpeg'}):null,
       pages:d.pages.map(p=>({id:crypto.randomUUID(),orig:new Blob([m[p.f]],{type:p.type}),corners:p.c,rot:p.rot,enh:p.enh,mode:p.mode,v:0}))};await put(doc);got.push(doc.id)}
     only=got;restoreM=null;toast(`${got.length}件を復元しました`);go('list')}
   catch(e){toast(`復元が途中で止まりました（${got.length}件を復元済み）。既存データは変更していません`)}}
@@ -302,7 +315,7 @@ app.addEventListener('input',e=>{const i=e.target.id;
   if(i=='nm'){cur.name=e.target.value;sv()}else if(i=='ct'){cur.cat=e.target.value.trim()||'未分類';sv()}
   else if(i=='q'){F.q=e.target.value;refreshList()}});
 app.addEventListener('change',e=>{const i=e.target.id;
-  if(i=='dm'){cur.mode=e.target.value;sv();drawEdit()}else if(i=='pm'){cur.pages[sel].mode=e.target.value||null;touch(cur.pages[sel])}
+  if(i=='ar'){cur.ar=e.target.value;cur.pages.forEach(q=>q.v++);sv();drawEdit()}else if(i=='dm'){cur.mode=e.target.value;sv();drawEdit()}else if(i=='pm'){cur.pages[sel].mode=e.target.value||null;touch(cur.pages[sel])}
   else if(i=='fcat'){F.cat=e.target.value;refreshList()}else if(i=='fs'){F.sort=e.target.value;refreshList()}else if(i=='ff'){F.from=e.target.value;refreshList()}else if(i=='ft'){F.to=e.target.value;refreshList()}});
 $('fc').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(f){pend=f;pc=null;drawEdit();const c=await auto(f);if(pend===f){pc=c;if(!c)toast('輪郭を検出できませんでした。採用後に「台形補正」で調整できます');drawEdit()}}};
 $('fp').onchange=async e=>{const fs=[...e.target.files];e.target.value='';if(!fs.length)return;const bl=[];for(const f of fs){if(f.type=='application/pdf'||/\.pdf$/i.test(f.name))bl.push(...await pdfBlobs(f));else bl.push(f)}if(bl.length)adopt(bl)};
