@@ -76,7 +76,7 @@ async function render(p,max,mode){
   const bm=await createImageBitmap(p.orig,{imageOrientation:'from-image'});
   const s0=Math.min(1,3000/Math.max(bm.width,bm.height)),W=Math.round(bm.width*s0),H=Math.round(bm.height*s0);
   let cv=mk(W,H);cv.getContext('2d').drawImage(bm,0,0,W,H);bm.close&&bm.close();
-  if(p.corners.some((v,i)=>Math.abs(v-DEF[i])>.002))cv=warp(cv,p.corners,max,cur.ar||'auto');
+  if(p.corners.some((v,i)=>Math.abs(v-DEF[i])>.002))cv=warp(cv,p.corners,max,cur.ar||'a4');
   else if(Math.max(W,H)>max){const s=max/Math.max(W,H),t=mk(Math.round(W*s),Math.round(H*s));t.getContext('2d').drawImage(cv,0,0,t.width,t.height);cv=t}
   const r=(p.rot||0)%4;
   if(r){const t=mk(r%2?cv.height:cv.width,r%2?cv.width:cv.height),x=t.getContext('2d');x.translate(t.width/2,t.height/2);x.rotate(r*Math.PI/2);x.drawImage(cv,-cv.width/2,-cv.height/2);cv=t}
@@ -90,9 +90,7 @@ function aspect(P,W,H,mode){
   if(isFinite(k2)&&isFinite(k3)&&(Math.abs(k2-1)>.02||Math.abs(k3-1)>.02)){
     const n2=m2.map((v,i)=>k2*v-m1[i]),n3=m3.map((v,i)=>k3*v-m1[i]),f2=-(n2[0]*n3[0]+n2[1]*n3[1])/(n2[2]*n3[2]);
     if(f2>0&&isFinite(f2)){const a=Math.sqrt(((n2[0]**2+n2[1]**2)/f2+n2[2]**2)/((n3[0]**2+n3[1]**2)/f2+n3[2]**2));if(a>.3&&a<3.3)r=a}}
-  if(mode=='a4')return r>1?Math.SQRT2:1/Math.SQRT2;
-  if(mode=='letter')return r>1?1.2941:1/1.2941;
-  const t=r>1?Math.SQRT2:1/Math.SQRT2;return Math.abs(Math.log(r/t))<.09?t:r}
+  return r>1?Math.SQRT2:1/Math.SQRT2}
 function warp(src,c,max,ar){
   const W=src.width,H=src.height,P=[0,1,2,3].map(i=>[c[i*2]*W,c[i*2+1]*H]),ds=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
   const w0=Math.max(ds(P[0],P[1]),ds(P[3],P[2])),h0=Math.max(ds(P[0],P[3]),ds(P[1],P[2])),S=Math.sqrt(w0*h0),r=aspect(P,W,H,ar);let w=S*Math.sqrt(r),h=S/Math.sqrt(r);const s=Math.min(1,max/Math.max(w,h));w=Math.max(2,Math.round(w*s));h=Math.max(2,Math.round(h*s));
@@ -152,11 +150,13 @@ async function unzip(blob){
   const b=new Uint8Array(await blob.arrayBuffer()),v=new DataView(b.buffer),m={},dec=new TextDecoder();let o=0;
   while(o+30<=b.length&&v.getUint32(o,true)===0x04034b50){if(v.getUint16(o+8,true)!==0)throw Error('x');const sz=v.getUint32(o+18,true),nl=v.getUint16(o+26,true),s=o+30+nl+v.getUint16(o+28,true);m[dec.decode(b.subarray(o+30,o+30+nl))]=b.slice(s,s+sz);o=s+sz}
   return m}
+const PS={a4:[595.28,841.89],a3:[841.89,1190.55],b5:[515.9,728.5]};
+function psz(m){const z=PS[cur.ar||'a4'],rr=Math.max(m.w,m.h)/Math.min(m.w,m.h);if(z&&Math.abs(rr/Math.SQRT2-1)<.01){const L=m.w>m.h;return[(L?z[1]:z[0]).toFixed(1),(L?z[0]:z[1]).toFixed(1)]}return[(m.w*.48).toFixed(1),(m.h*.48).toFixed(1)]}
 async function makePdf(imgs){
   const enc=new TextEncoder(),parts=[],offs=[];let off=0;
   const add=x=>{const b=typeof x=='string'?enc.encode(x):x;parts.push(b);off+=b.length},obj=(id,s)=>{offs[id]=off;add(id+' 0 obj\n'+s+'\nendobj\n')};
   add('%PDF-1.4\n');const n=imgs.length;obj(1,'<</Type/Catalog/Pages 2 0 R>>');obj(2,`<</Type/Pages/Count ${n}/Kids[${imgs.map((_,i)=>(3+3*i)+' 0 R').join(' ')}]>>`);
-  for(let i=0;i<n;i++){const m=imgs[i],pw=(m.w*.48).toFixed(1),ph=(m.h*.48).toFixed(1),cs=`q ${pw} 0 0 ${ph} 0 0 cm /I Do Q`,u=new Uint8Array(await m.blob.arrayBuffer());
+  for(let i=0;i<n;i++){const m=imgs[i],[pw,ph]=psz(m),cs=`q ${pw} 0 0 ${ph} 0 0 cm /I Do Q`,u=new Uint8Array(await m.blob.arrayBuffer());
     obj(3+3*i,`<</Type/Page/Parent 2 0 R/MediaBox[0 0 ${pw} ${ph}]/Contents ${4+3*i} 0 R/Resources<</XObject<</I ${5+3*i} 0 R>>>>>>`);
     obj(4+3*i,`<</Length ${cs.length}>>\nstream\n${cs}\nendstream`);
     offs[5+3*i]=off;add(`${5+3*i} 0 obj\n<</Type/XObject/Subtype/Image/Width ${m.w}/Height ${m.h}/ColorSpace/DeviceRGB/BitsPerComponent 8/Filter/DCTDecode/Length ${u.length}>>\nstream\n`);add(u);add('\nendstream\nendobj\n')}
@@ -165,7 +165,7 @@ async function makePdf(imgs){
 function dl(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),6e4);const t=`「${name}」のダウンロードを開始しました。完了はブラウザの通知、またはChromeの「ダウンロード」一覧で確認できます。`,m=$('dlmsg');if(m)m.textContent='✔ '+t;toast('ダウンロードを開始しました')}
 async function share(blob,name){const f=new File([blob],name,{type:blob.type});if(navigator.canShare&&navigator.canShare({files:[f]})){try{await navigator.share({files:[f]});return}catch(e){if(e.name=='AbortError')return}}dl(blob,name)}
 /* ---- 保存 ---- */
-const newDoc=()=>{const n=Date.now();return{id:crypto.randomUUID(),name:'',cat:'未分類',mode:'color',created:n,updated:n,status:'draft',pages:[]}};
+const newDoc=()=>{const n=Date.now();return{id:crypto.randomUUID(),name:'',cat:'未分類',mode:'color',ar:'a4',created:n,updated:n,status:'draft',pages:[]}};
 const sv=()=>{clearTimeout(timer);timer=setTimeout(save,700)};
 async function save(){clearTimeout(timer);if(!cur||!cur.pages.length)return;try{cur.updated=Date.now();cur.thumb=await toBlob(await render(cur.pages[0],220,eff(cur.pages[0])),.7);await put(cur)}catch(e){toast('保存できませんでした。空き容量を確認してください')}}
 const touch=p=>{p.v++;sv();drawEdit()};
@@ -201,7 +201,7 @@ async function drawEdit(){
   app.innerHTML=`<div class="row"><button data-a="back" style="flex:none">← 書類</button></div>
   <input id="nm" value="${esc(cur.name)}" placeholder="書類名" aria-label="書類名">
   <div class="row"><input id="ct" list="cl" value="${esc(cur.cat)}" aria-label="カテゴリ"><datalist id="cl">${CATS.map(c=>`<option value="${esc(c)}">`).join('')}</datalist><select id="dm" aria-label="書類全体の色モード">${opts(MODES,cur.mode)}</select></div>
-  <div class="row"><select id="ar" aria-label="用紙の縦横比">${opts({auto:'用紙の縦横比：自動（A4・B5などに補正）',a4:'用紙の縦横比：A4に固定',letter:'用紙の縦横比：レターに固定',none:'用紙の縦横比：補正しない'},cur.ar||'auto')}</select></div>
+  <label style="margin:8px 0">用紙の縦横比<select id="ar">${opts({a4:'A4',a3:'A3',b5:'B5',none:'補正しない'},cur.ar||'a4')}</select></label>
   ${pend?`<div class="pv"><span class="fr"><canvas id="pv"></canvas></span></div><div class="row"><button data-a="cancelp">やめる</button><button data-a="retakep">撮り直す</button><button class="pri" data-a="adopt">このページを採用</button></div>`
   :p?`<div class="pv"><span class="fr"><canvas id="pv"></canvas></span></div>
     <p class="sub" style="text-align:center">ページ ${sel+1} / ${cur.pages.length}</p>
