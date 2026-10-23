@@ -43,7 +43,7 @@ dialog{border:1px solid var(--ln);border-radius:16px;background:var(--sf);color:
 dialog::backdrop{background:rgba(0,0,0,.5)}
 .tabs{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--sf);border-top:1px solid var(--ln);padding-bottom:env(safe-area-inset-bottom)}
 .tabs button{flex:1;border:0;border-radius:0;background:none;min-height:58px}.tabs .on{color:var(--ac);font-weight:700;box-shadow:inset 0 3px 0 var(--ac)}
-#toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:99px;font-size:14px;max-width:90vw}
+#toast{z-index:10;position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:99px;font-size:14px;max-width:90vw}
 #toast[hidden]{display:none}
 footer{text-align:center;color:var(--mu);font-size:13px;margin:28px 0 8px}footer a{color:var(--ac)}
 h2{font-size:18px;margin:16px 0 4px}
@@ -55,7 +55,7 @@ h2{font-size:18px;margin:16px 0 4px}
 <nav class="tabs"><button data-a="t-list" id="t-list">書類</button><button data-a="t-scan" id="t-scan">スキャン</button><button data-a="t-set" id="t-set">設定</button></nav>
 <div id="crop" hidden></div><dialog id="dlg"></dialog><div id="toast" hidden></div>
 <input type="file" id="fc" accept="image/*" capture="environment" hidden>
-<input type="file" id="fp" accept="image/*" multiple hidden>
+<input type="file" id="fp" accept="image/*,application/pdf,.pdf" multiple hidden>
 <input type="file" id="fr" accept=".zip,application/zip" hidden>
 <script>
 const $=id=>document.getElementById(id),app=$('app'),mk=(w,h)=>{const c=document.createElement('canvas');c.width=w;c.height=h;return c},
@@ -64,7 +64,7 @@ stamp=d=>{d=new Date(d);return''+d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDa
 fmt=d=>{d=new Date(d);return`${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`},
 mb=n=>(n/1048576).toFixed(1)+' MB',DEF=[0,0,1,0,1,1,0,1],MODES={color:'カラー',gray:'グレースケール',bw:'白黒'},
 opts=(o,v)=>Object.entries(o).map(([k,t])=>`<option value="${k}"${k==v?' selected':''}>${t}</option>`).join('');
-let view='list',cur=null,sel=0,pend=null,rt=null,out=null,timer,tok=0,only=null,CATS=['未分類'],F={q:'',cat:'',sort:'upd',from:'',to:''},urls=[],restoreM=null;
+let view='list',cur=null,sel=0,pend=null,pc=null,rt=null,out=null,timer,tok=0,only=null,CATS=['未分類'],F={q:'',cat:'',sort:'upd',from:'',to:''},urls=[],restoreM=null;
 function toast(t){const e=$('toast');e.textContent=t;e.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>e.hidden=true,3500)}
 function ask(html,btns){return new Promise(r=>{const d=$('dlg');d.innerHTML=`<p>${html}</p><div class="row">${btns.map((b,i)=>`<button data-i="${i}" class="${i==btns.length-1?'pri':''}">${b}</button>`).join('')}</div>`;d.onclick=e=>{const i=e.target.dataset.i;if(i!=null){d.close();r(+i)}};d.oncancel=()=>r(-1);d.showModal()})}
 /* ---- IndexedDB ---- */
@@ -102,6 +102,28 @@ function filt(cv,enh,mode){
   x.putImageData(im,0,0);return cv}
 const toBlob=(cv,q)=>new Promise(r=>cv.toBlob(r,'image/jpeg',q)),eff=p=>p.mode||cur.mode,tc=new Map();
 async function pthumb(p){const k=p.id+'.'+p.v+eff(p);if(!tc.has(k)){const cv=await render(p,160,eff(p));tc.set(k,cv.toDataURL('image/jpeg',.6))}return tc.get(k)}
+/* ---- 自動台形検出（明暗の大きな領域から四隅を推定） ---- */
+function detect(cv){
+  const s=Math.min(1,240/Math.max(cv.width,cv.height)),w=Math.max(8,Math.round(cv.width*s)),h=Math.max(8,Math.round(cv.height*s)),c=mk(w,h),x=c.getContext('2d');
+  x.filter='blur(2px)';x.drawImage(cv,0,0,w,h);
+  const d=x.getImageData(0,0,w,h).data,N=w*h,g=new Uint8Array(N),hist=new Uint32Array(256);
+  for(let i=0;i<N;i++){g[i]=(d[i*4]*77+d[i*4+1]*150+d[i*4+2]*29)>>8;hist[g[i]]++}
+  let sum=0;for(let i=0;i<256;i++)sum+=i*hist[i];
+  let wB=0,sB=0,bv=0,t=128;for(let i=0;i<256;i++){wB+=hist[i];if(!wB)continue;const wF=N-wB;if(!wF)break;sB+=i*hist[i];const v=wB*wF*(sB/wB-(sum-sB)/wF)**2;if(v>bv){bv=v;t=i}}
+  for(const inv of[0,1]){
+    const m=new Uint8Array(N);for(let i=0;i<N;i++)m[i]=(inv?g[i]<=t:g[i]>t)?1:0;
+    const seen=new Uint8Array(N);let best=null;
+    for(let s0=0;s0<N;s0++){if(!m[s0]||seen[s0])continue;
+      const st=[s0];seen[s0]=1;let n=0,bd=0,a=[1e9,0,0],b=[-1e9,0,0],r=[-1e9,0,0],l=[1e9,0,0];
+      while(st.length){const i=st.pop(),px=i%w,py=(i/w)|0,sm=px+py,df=px-py;n++;
+        if(!px||!py||px==w-1||py==h-1)bd=1;
+        if(sm<a[0])a=[sm,px,py];if(sm>b[0])b=[sm,px,py];if(df>r[0])r=[df,px,py];if(df<l[0])l=[df,px,py];
+        if(px>0&&m[i-1]&&!seen[i-1]){seen[i-1]=1;st.push(i-1)}if(px<w-1&&m[i+1]&&!seen[i+1]){seen[i+1]=1;st.push(i+1)}
+        if(py>0&&m[i-w]&&!seen[i-w]){seen[i-w]=1;st.push(i-w)}if(py<h-1&&m[i+w]&&!seen[i+w]){seen[i+w]=1;st.push(i+w)}}
+      if(!bd&&(!best||n>best.n))best={n,q:[a,r,b,l]}}
+    if(best&&best.n>N*.15&&best.n<N*.95)return best.q.flatMap(q=>[(q[1]+.5)/w,(q[2]+.5)/h])}
+  return null}
+async function auto(b){try{const bm=await createImageBitmap(b,{imageOrientation:'from-image'}),s=Math.min(1,480/Math.max(bm.width,bm.height)),c=mk(Math.round(bm.width*s),Math.round(bm.height*s));c.getContext('2d').drawImage(bm,0,0,c.width,c.height);bm.close&&bm.close();return detect(c)}catch(e){return null}}
 /* ---- ZIP / PDF ---- */
 const crcT=(()=>{const t=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})(),
 crc=u=>{let c=-1;for(let i=0;i<u.length;i++)c=crcT[(c^u[i])&255]^(c>>>8);return(c^-1)>>>0};
@@ -135,11 +157,11 @@ const newDoc=()=>{const n=Date.now();return{id:crypto.randomUUID(),name:'',cat:'
 const sv=()=>{clearTimeout(timer);timer=setTimeout(save,700)};
 async function save(){clearTimeout(timer);if(!cur||!cur.pages.length)return;try{cur.updated=Date.now();cur.thumb=await toBlob(await render(cur.pages[0],220,eff(cur.pages[0])),.7);await put(cur)}catch(e){toast('保存できませんでした。空き容量を確認してください')}}
 const touch=p=>{p.v++;sv();drawEdit()};
-async function adopt(blobs){
+async function adopt(blobs,cs0){
   let n=0;
   for(const b of blobs){try{(await createImageBitmap(b)).close()}catch(e){toast('この画像形式は読み込めません。JPEGまたはPNGでお試しください');continue}
-    if(rt!=null){const p=cur.pages[rt];p.orig=b;p.corners=DEF.slice();p.rot=0;p.v++;rt=null}
-    else{if(!cur.pages.length){cur.name=cur.name||stamp(Date.now());navigator.storage?.persist?.()}cur.pages.push({id:crypto.randomUUID(),orig:b,corners:DEF.slice(),rot:0,enh:true,mode:null,v:0});sel=cur.pages.length-1}
+    if(rt!=null){const p=cur.pages[rt];p.orig=b;p.corners=cs0||DEF.slice();p.rot=0;p.v++;rt=null}
+    else{if(!cur.pages.length){cur.name=cur.name||stamp(Date.now());navigator.storage?.persist?.()}cur.pages.push({id:crypto.randomUUID(),orig:b,corners:cs0||DEF.slice(),rot:0,enh:true,mode:null,v:0});sel=cur.pages.length-1}
     cur.status='draft';n++}
   pend=null;if(n){await save()}drawEdit()}
 async function leave(){await save();cur=null;pend=null;rt=null}
@@ -171,9 +193,9 @@ async function drawEdit(){
     <div class="row"><select id="pm" aria-label="このページの色">${opts({'':'このページの色：書類に従う',...MODES},p.mode||'')}</select><button data-a="enhall">全ページを自動補正</button></div>
     <div class="strip">${cur.pages.map((q,i)=>`<img class="sp fr ${i==sel?'on':''}" data-a="sel" data-i="${i}" alt="ページ${i+1}">`).join('')}</div>`
   :`<div class="empty fr">${ex?'書き出し済みです。元画像は削除されています。<br>端末に保存したPDF/JPEGはファイル管理アプリから開けます。':'ページがありません。撮影するか、写真を取り込みます。<br><span class="sub">カメラが使えない場合は、ブラウザ設定でカメラの許可を確認するか、写真を取り込んでください。</span>'}</div>`}
-  ${pend?'':`<div class="row"><button data-a="cam">撮影</button><button data-a="pick">写真を取り込む</button></div>${cur.pages.length?'<button class="pri" data-a="export" style="width:100%">書き出しへ進む</button>':''}<p style="text-align:center"><button class="dg" data-a="rmcur" style="min-height:36px">この書類を破棄</button></p>`}`;
+  ${pend?'':`<div class="row"><button data-a="cam">撮影</button><button data-a="pick">写真・PDFを取り込む</button></div>${cur.pages.length?'<button class="pri" data-a="export" style="width:100%">書き出しへ進む</button>':''}<p style="text-align:center"><button class="dg" data-a="rmcur" style="min-height:36px">この書類を破棄</button></p>`}`;
   const cv=$('pv');
-  try{if(cv){const c=await render(pend?{orig:pend,corners:DEF,rot:0,enh:true}:p,1100,pend?'color':eff(p));if(t!=tok)return;cv.width=c.width;cv.height=c.height;cv.getContext('2d').drawImage(c,0,0)}}catch(e){toast('画像を処理できませんでした（メモリ不足の可能性があります）')}
+  try{if(cv){const c=await render(pend?{orig:pend,corners:pc||DEF,rot:0,enh:true}:p,1100,pend?'color':eff(p));if(t!=tok)return;cv.width=c.width;cv.height=c.height;cv.getContext('2d').drawImage(c,0,0)}}catch(e){toast('画像を処理できませんでした（メモリ不足の可能性があります）')}
   fillStrip(t)}
 function fillStrip(t){document.querySelectorAll('.sp').forEach(im=>{pthumb(cur.pages[im.dataset.i]).then(u=>{if(t==tok)im.src=u}).catch(()=>{})})}
 function drawExport(){
@@ -218,16 +240,30 @@ async function doRestore(){
       pages:d.pages.map(p=>({id:crypto.randomUUID(),orig:new Blob([m[p.f]],{type:p.type}),corners:p.c,rot:p.rot,enh:p.enh,mode:p.mode,v:0}))};await put(doc);got.push(doc.id)}
     only=got;restoreM=null;toast(`${got.length}件を復元しました`);go('list')}
   catch(e){toast(`復元が途中で止まりました（${got.length}件を復元済み）。既存データは変更していません`)}}
+/* ---- PDF取り込み（PDF.jsを lib/ から読み込み） ---- */
+function loadPdf(){return window.pdfjsLib?Promise.resolve():new Promise((res,rej)=>{const s=document.createElement('script');s.src='lib/pdf.min.js';s.onload=()=>{pdfjsLib.GlobalWorkerOptions.workerSrc='lib/pdf.worker.min.js';res()};s.onerror=()=>rej(new Error('nolib'));document.head.appendChild(s)})}
+function askPw(wrong){return new Promise(r=>{const d=$('dlg');d.innerHTML=`<p>${wrong?'パスワードが違います。もう一度入力してください。':'このPDFはパスワードで保護されています。パスワードを入力してください。'}</p><input id="pw" type="password" autocomplete="off" aria-label="PDFのパスワード"><div class="row"><button data-i="0">キャンセル</button><button data-i="1" class="pri">開く</button></div>`;d.onclick=e=>{const i=e.target.dataset.i;if(i!=null){const v=$('pw').value;d.close();r(i=='1'?v:null)}};d.oncancel=()=>r(null);d.showModal()})}
+async function pdfBlobs(f){
+  if(f.size>=50*1048576&&await ask(`「${esc(f.name)}」は${mb(f.size)}あります。処理に時間がかかり、端末のメモリが不足することがあります。続行しますか？`,['中止','続行'])!=1)return[];
+  try{await loadPdf()}catch(e){toast('PDFの読み込みに必要なファイル（lib/pdf.min.js）が見つかりません');return[]}
+  let cancelled=0;const task=pdfjsLib.getDocument({data:new Uint8Array(await f.arrayBuffer())});
+  task.onPassword=async(upd,reason)=>{const pw=await askPw(reason==2);if(pw==null){cancelled=1;task.destroy()}else upd(pw)};
+  let doc;try{doc=await task.promise}catch(e){if(!cancelled)toast('このPDFを開けませんでした。破損しているか、非対応の形式です');return[]}
+  if(doc.numPages>=200&&await ask(`${doc.numPages}ページあります。処理に時間がかかり、メモリが不足することがあります。続行しますか？`,['中止','続行'])!=1){doc.destroy();return[]}
+  const bs=[];
+  try{for(let i=1;i<=doc.numPages;i++){toast(`PDFを変換中… ${i} / ${doc.numPages}`);const pg=await doc.getPage(i),v1=pg.getViewport({scale:1}),v=pg.getViewport({scale:Math.min(3,2000/Math.max(v1.width,v1.height))}),c=mk(Math.round(v.width),Math.round(v.height)),x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);await pg.render({canvasContext:x,viewport:v}).promise;bs.push(await toBlob(c,.9));c.width=c.height=0;pg.cleanup()}}
+  catch(e){toast('PDFの変換中にエラーが発生しました（メモリ不足の可能性があります）。変換できた分だけ取り込みます')}
+  doc.destroy();return bs}
 /* ---- 台形補正 ---- */
 async function crop(p){
   const bm=await createImageBitmap(p.orig,{imageOrientation:'from-image'}),sc=Math.min((innerWidth-24)/bm.width,(innerHeight-150)/bm.height),W=Math.round(bm.width*sc),H=Math.round(bm.height*sc),ov=$('crop');
-  ov.hidden=false;ov.innerHTML=`<canvas id="cc" width="${W}" height="${H}"></canvas><p class="sub">四隅の丸をドラッグして書類に合わせます</p><div class="row" style="width:${Math.max(W,300)}px"><button id="cr">リセット</button><button id="cx">キャンセル</button><button id="co" class="pri">適用</button></div>`;
+  ov.hidden=false;ov.innerHTML=`<canvas id="cc" width="${W}" height="${H}"></canvas><p class="sub">四隅の丸をドラッグして書類に合わせます</p><div class="row" style="width:${Math.max(W,300)}px"><button id="ca">自動検出</button><button id="cr">リセット</button><button id="cx">キャンセル</button><button id="co" class="pri">適用</button></div>`;
   const cv=$('cc'),x=cv.getContext('2d');let pt=p.corners.slice(),k=-1;
   const dr=()=>{x.drawImage(bm,0,0,W,H);x.beginPath();for(let i=0;i<4;i++)x.lineTo(pt[i*2]*W,pt[i*2+1]*H);x.closePath();x.fillStyle='rgba(15,210,180,.18)';x.fill();x.lineWidth=2;x.strokeStyle='#0fd2b4';x.stroke();for(let i=0;i<4;i++){x.beginPath();x.arc(pt[i*2]*W,pt[i*2+1]*H,13,0,7);x.fillStyle='#fff';x.fill();x.stroke()}};
   const mv=e=>{if(k<0)return;const r=cv.getBoundingClientRect();pt[k*2]=Math.min(1,Math.max(0,(e.clientX-r.left)/r.width));pt[k*2+1]=Math.min(1,Math.max(0,(e.clientY-r.top)/r.height));dr()};
   cv.onpointerdown=e=>{cv.setPointerCapture(e.pointerId);const r=cv.getBoundingClientRect(),X=(e.clientX-r.left)/r.width,Y=(e.clientY-r.top)/r.height;let m=9;for(let i=0;i<4;i++){const d=Math.hypot(pt[i*2]-X,pt[i*2+1]-Y);if(d<m){m=d;k=i}}mv(e)};
   cv.onpointermove=mv;cv.onpointerup=()=>k=-1;dr();
-  return new Promise(res=>{const end=v=>{ov.hidden=true;ov.innerHTML='';bm.close&&bm.close();res(v)};$('cr').onclick=()=>{pt=DEF.slice();dr()};$('cx').onclick=()=>end(null);$('co').onclick=()=>end(pt)})}
+  return new Promise(res=>{const end=v=>{ov.hidden=true;ov.innerHTML='';bm.close&&bm.close();res(v)};$('cr').onclick=()=>{pt=DEF.slice();dr()};$('ca').onclick=()=>{const c=mk(W,H);c.getContext('2d').drawImage(bm,0,0,W,H);const r=detect(c);if(r){pt=r;dr()}else toast('輪郭を検出できませんでした。手動で調整してください')};$('cx').onclick=()=>end(null);$('co').onclick=()=>end(pt)})}
 /* ---- 操作 ---- */
 async function act(a,b){
   const p=cur?.pages[sel];
@@ -241,7 +277,7 @@ async function act(a,b){
   else if(a=='rmcur'){if(await ask('この書類を破棄しますか？<br>元画像と編集内容は元に戻せません。端末に保存済みのPDF/JPEGは削除されません。',['キャンセル','破棄'])==1){await del(cur.id);cur=null;go('list')}}
   else if(a=='rmall'){if(await ask('アプリの全データ（書類・画像・サムネイル）を削除しますか？<br>端末に保存済みのPDF/JPEGは削除されません。元に戻せません。',['キャンセル','すべて削除'])==1){await clr();cur=null;toast('全データを削除しました');draw()}}
   else if(a=='cam'){rt=null;$('fc').click()}else if(a=='pick'){rt=null;$('fp').click()}
-  else if(a=='adopt')adopt([pend]);
+  else if(a=='adopt')adopt([pend],pc);
   else if(a=='retakep'){pend=null;$('fc').click()}else if(a=='cancelp'){pend=null;rt=null;drawEdit()}
   else if(a=='sel'){sel=+b.dataset.i;drawEdit()}
   else if(a=='crop'){const c=await crop(p);if(c){p.corners=c;touch(p)}}
@@ -265,8 +301,8 @@ app.addEventListener('input',e=>{const i=e.target.id;
 app.addEventListener('change',e=>{const i=e.target.id;
   if(i=='dm'){cur.mode=e.target.value;sv();drawEdit()}else if(i=='pm'){cur.pages[sel].mode=e.target.value||null;touch(cur.pages[sel])}
   else if(i=='fcat'){F.cat=e.target.value;drawList()}else if(i=='fs'){F.sort=e.target.value;drawList()}else if(i=='ff'){F.from=e.target.value;drawList()}else if(i=='ft'){F.to=e.target.value;drawList()}});
-$('fc').onchange=e=>{const f=e.target.files[0];e.target.value='';if(f){pend=f;drawEdit()}};
-$('fp').onchange=e=>{const fs=[...e.target.files];e.target.value='';if(fs.length)adopt(fs)};
+$('fc').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(f){pend=f;pc=null;drawEdit();const c=await auto(f);if(pend===f){pc=c;if(!c)toast('輪郭を検出できませんでした。採用後に「台形補正」で調整できます');drawEdit()}}};
+$('fp').onchange=async e=>{const fs=[...e.target.files];e.target.value='';if(!fs.length)return;const bl=[];for(const f of fs){if(f.type=='application/pdf'||/\.pdf$/i.test(f.name))bl.push(...await pdfBlobs(f));else bl.push(f)}if(bl.length)adopt(bl)};
 $('fr').onchange=e=>{const f=e.target.files[0];e.target.value='';if(f)readBk(f)};
 document.addEventListener('visibilitychange',()=>{if(document.hidden)save()});
 /* ---- 起動 ---- */
