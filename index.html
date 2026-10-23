@@ -150,7 +150,7 @@ async function makePdf(imgs){
     offs[5+3*i]=off;add(`${5+3*i} 0 obj\n<</Type/XObject/Subtype/Image/Width ${m.w}/Height ${m.h}/ColorSpace/DeviceRGB/BitsPerComponent 8/Filter/DCTDecode/Length ${u.length}>>\nstream\n`);add(u);add('\nendstream\nendobj\n')}
   const xo=off,tot=3*n+3;add(`xref\n0 ${tot}\n0000000000 65535 f \n`+offs.slice(1).map(o=>String(o).padStart(10,'0')+' 00000 n \n').join('')+`trailer\n<</Size ${tot}/Root 1 0 R>>\nstartxref\n${xo}\n%%EOF`);
   return new Blob(parts,{type:'application/pdf'})}
-function dl(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),6e4)}
+function dl(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),6e4);const t=`「${name}」のダウンロードを開始しました。完了はブラウザの通知、またはChromeの「ダウンロード」一覧で確認できます。`,m=$('dlmsg');if(m)m.textContent='✔ '+t;toast('ダウンロードを開始しました')}
 async function share(blob,name){const f=new File([blob],name,{type:blob.type});if(navigator.canShare&&navigator.canShare({files:[f]})){try{await navigator.share({files:[f]});return}catch(e){if(e.name=='AbortError')return}}dl(blob,name)}
 /* ---- 保存 ---- */
 const newDoc=()=>{const n=Date.now();return{id:crypto.randomUUID(),name:'',cat:'未分類',mode:'color',created:n,updated:n,status:'draft',pages:[]}};
@@ -209,7 +209,7 @@ function drawExport(){
   <label>色モード<select id="em"><option value="">書類の設定に従う（${MODES[cur.mode]}）</option>${opts(MODES)}</select></label>
   <p class="sub">ページ順（変更は編集画面で）</p><div class="strip">${cur.pages.map((q,i)=>`<img class="sp fr" data-i="${i}" alt="${i+1}ページ目">`).join('')}</div>
   <button class="pri" data-a="run" style="width:100%;margin-top:12px">全${cur.pages.length}ページを確認して書き出す</button><div id="res"></div>`;fillStrip(t)}
-function outHtml(){return`<div class="card"><b>${esc(out.name)}</b><br><span class="sub">${mb(out.blob.size)}</span><div class="row"><button class="pri" data-a="share">共有</button><button data-a="dl">ダウンロード</button></div>${out.exp?`<p>端末への保存はできましたか？</p><div class="row"><button data-a="s1">保存できました</button><button data-a="s2">まだ保存できていません</button><button data-a="s3">後で確認する</button></div><p class="sub">「保存できました」を選ぶと、元画像と編集情報を削除します（書類名とサムネイルは残ります）。</p>`:'<p class="sub">暗号化されていません。保管と共有先にご注意ください。</p>'}</div>`}
+function outHtml(){return`<div class="card"><b>${esc(out.name)}</b><br><span class="sub">${mb(out.blob.size)}</span><div class="row"><button class="pri" data-a="share">共有</button><button data-a="dl">ダウンロード</button></div><p id="dlmsg" role="status" style="color:var(--ac);margin:4px 0"></p>${out.exp?`<p>端末への保存はできましたか？</p><div class="row"><button data-a="s1">保存できました</button><button data-a="s2">まだ保存できていません</button><button data-a="s3">後で確認する</button></div><p class="sub">「保存できました」を選ぶと、元画像と編集情報を削除します（書類名とサムネイルは残ります）。</p>`:'<p class="sub">暗号化されていません。保管と共有先にご注意ください。</p>'}</div>`}
 async function run(){
   const r=$('res'),name=($('en').value.trim()||cur.name).replace(/[\\/:*?"<>|]/g,'_'),f=$('ef').value,q=+$('eq').value,m=$('em').value;let imgs=[];
   try{for(let i=0;i<cur.pages.length;i++){r.textContent=`処理中… ${i+1} / ${cur.pages.length}`;const p=cur.pages[i],c=await render(p,2400,m||eff(p));imgs.push({blob:await toBlob(c,q),w:c.width,h:c.height});c.width=c.height=0}
