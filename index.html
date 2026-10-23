@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a7a6c">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>ScanPocket</title>
+<style>
+:root{color-scheme:light dark;--bg:#f3f5f4;--sf:#fff;--ink:#16201f;--mu:#5d6b69;--ac:#0a7a6c;--on:#fff;--ln:#dbe2e0;--dg:#c2362b;--ac2:#e3f3f0;--g:linear-gradient(var(--ac),var(--ac))}
+@media(prefers-color-scheme:dark){:root{--bg:#0f1514;--sf:#172120;--ink:#e8efed;--mu:#9bb0ab;--ac:#3fc4ae;--on:#06201b;--ln:#2a3836;--dg:#ff7b6e;--ac2:#1b302d}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.6 "Hiragino Sans","Noto Sans JP",system-ui,sans-serif;padding-bottom:calc(72px + env(safe-area-inset-bottom))}
+.top{display:flex;align-items:center;gap:10px;padding:calc(12px + env(safe-area-inset-top)) 18px 4px;max-width:640px;margin:auto}
+.top b{font-size:21px;letter-spacing:.03em}
+main{max-width:640px;margin:auto;padding:8px 16px}
+button,select,input{font:inherit;color:inherit}
+button{border:1px solid var(--ln);background:var(--sf);border-radius:10px;padding:8px 14px;min-height:44px}
+button.pri{background:var(--ac);border-color:var(--ac);color:var(--on);font-weight:700}
+button.dg{color:var(--dg)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--ac);outline-offset:2px}
+input,select{background:var(--sf);border:1px solid var(--ln);border-radius:10px;padding:8px 12px;min-height:44px;width:100%}
+label{display:block;margin:12px 0;color:var(--mu);font-size:13px}label>*{margin-top:4px;color:var(--ink);font-size:15px}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}.row>*{flex:1;min-width:0}
+.card{background:var(--sf);border:1px solid var(--ln);border-radius:14px;padding:14px;margin:12px 0}
+.item{display:flex;gap:14px;align-items:center;padding:12px;margin:10px 0;background:var(--sf);border:1px solid var(--ln);border-radius:14px}
+.item .m{flex:1;min-width:0}.item .m b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sub{color:var(--mu);font-size:13px}
+.tag{display:inline-block;font-size:12px;padding:0 8px;border-radius:99px;background:var(--ac2);color:var(--ac);border:1px solid var(--ln)}
+.th{width:54px;height:70px;flex:none;border-radius:3px;background:var(--ac2) center/cover}
+.fr{position:relative;display:inline-block;max-width:100%}
+.fr::after{content:"";position:absolute;inset:-5px;pointer-events:none;background:var(--g) 0 0/14px 3px,var(--g) 0 0/3px 14px,var(--g) 100% 0/14px 3px,var(--g) 100% 0/3px 14px,var(--g) 0 100%/14px 3px,var(--g) 0 100%/3px 14px,var(--g) 100% 100%/14px 3px,var(--g) 100% 100%/3px 14px;background-repeat:no-repeat}
+.pv{text-align:center;margin:14px 0}.pv canvas{max-width:100%;max-height:60vh;height:auto;width:auto;background:var(--sf);display:block}
+.empty{text-align:center;padding:36px 12px;color:var(--mu)}
+.tools{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0}.tools button{padding:6px}
+.strip{display:flex;gap:12px;overflow-x:auto;padding:8px 6px}
+.sp{height:88px;min-width:50px;border-radius:3px;background:var(--ac2);border:2px solid transparent;flex:none}.sp.on{border-color:var(--ac)}
+#crop{position:fixed;inset:0;background:var(--bg);z-index:9;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:12px}
+#crop[hidden]{display:none}#cc{touch-action:none}
+dialog{border:1px solid var(--ln);border-radius:16px;background:var(--sf);color:var(--ink);max-width:min(90vw,420px);padding:18px}
+dialog::backdrop{background:rgba(0,0,0,.5)}
+.tabs{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--sf);border-top:1px solid var(--ln);padding-bottom:env(safe-area-inset-bottom)}
+.tabs button{flex:1;border:0;border-radius:0;background:none;min-height:58px}.tabs .on{color:var(--ac);font-weight:700;box-shadow:inset 0 3px 0 var(--ac)}
+#toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:99px;font-size:14px;max-width:90vw}
+#toast[hidden]{display:none}
+footer{text-align:center;color:var(--mu);font-size:13px;margin:28px 0 8px}footer a{color:var(--ac)}
+h2{font-size:18px;margin:16px 0 4px}
+</style>
+</head>
+<body>
+<header class="top"><svg width="30" height="30" viewBox="0 0 30 30" fill="none" stroke="var(--ac)" stroke-width="3.5" stroke-linecap="round" aria-hidden="true"><path d="M3 10V3h7M20 3h7v7M27 20v7h-7M10 27H3v-7"/><path d="M10 11h10M10 16h10M10 21h6" stroke-width="2.5"/></svg><b>ScanPocket</b></header>
+<main id="app"></main>
+<nav class="tabs"><button data-a="t-list" id="t-list">書類</button><button data-a="t-scan" id="t-scan">スキャン</button><button data-a="t-set" id="t-set">設定</button></nav>
+<div id="crop" hidden></div><dialog id="dlg"></dialog><div id="toast" hidden></div>
+<input type="file" id="fc" accept="image/*" capture="environment" hidden>
+<input type="file" id="fp" accept="image/*" multiple hidden>
+<input type="file" id="fr" accept=".zip,application/zip" hidden>
+<script>
+const $=id=>document.getElementById(id),app=$('app'),mk=(w,h)=>{const c=document.createElement('canvas');c.width=w;c.height=h;return c},
+esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])),pad=n=>String(n).padStart(2,'0'),
+stamp=d=>{d=new Date(d);return''+d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+'_'+pad(d.getHours())+pad(d.getMinutes())},
+fmt=d=>{d=new Date(d);return`${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`},
+mb=n=>(n/1048576).toFixed(1)+' MB',DEF=[0,0,1,0,1,1,0,1],MODES={color:'カラー',gray:'グレースケール',bw:'白黒'},
+opts=(o,v)=>Object.entries(o).map(([k,t])=>`<option value="${k}"${k==v?' selected':''}>${t}</option>`).join('');
+let view='list',cur=null,sel=0,pend=null,rt=null,out=null,timer,tok=0,only=null,CATS=['未分類'],F={q:'',cat:'',sort:'upd',from:'',to:''},urls=[],restoreM=null;
+function toast(t){const e=$('toast');e.textContent=t;e.hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>e.hidden=true,3500)}
+function ask(html,btns){return new Promise(r=>{const d=$('dlg');d.innerHTML=`<p>${html}</p><div class="row">${btns.map((b,i)=>`<button data-i="${i}" class="${i==btns.length-1?'pri':''}">${b}</button>`).join('')}</div>`;d.onclick=e=>{const i=e.target.dataset.i;if(i!=null){d.close();r(+i)}};d.oncancel=()=>r(-1);d.showModal()})}
+/* ---- IndexedDB ---- */
+const db=new Promise((res,rej)=>{const q=indexedDB.open('scanpocket',1);q.onupgradeneeded=()=>q.result.createObjectStore('docs',{keyPath:'id'});q.onsuccess=()=>res(q.result);q.onerror=()=>rej(q.error)});
+const tx=async(m,f)=>{const d=await db;return new Promise((res,rej)=>{const t=d.transaction('docs',m),r=f(t.objectStore('docs'));t.oncomplete=()=>res(r.result);t.onerror=t.onabort=()=>rej(t.error)})};
+const all=()=>tx('readonly',s=>s.getAll()),get=id=>tx('readonly',s=>s.get(id)),put=d=>tx('readwrite',s=>s.put(d)),del=id=>tx('readwrite',s=>s.delete(id)),clr=()=>tx('readwrite',s=>s.clear());
+/* ---- 画像処理 ---- */
+async function render(p,max,mode){
+  const bm=await createImageBitmap(p.orig,{imageOrientation:'from-image'});
+  const s0=Math.min(1,3000/Math.max(bm.width,bm.height)),W=Math.round(bm.width*s0),H=Math.round(bm.height*s0);
+  let cv=mk(W,H);cv.getContext('2d').drawImage(bm,0,0,W,H);bm.close&&bm.close();
+  if(p.corners.some((v,i)=>Math.abs(v-DEF[i])>.002))cv=warp(cv,p.corners,max);
+  else if(Math.max(W,H)>max){const s=max/Math.max(W,H),t=mk(Math.round(W*s),Math.round(H*s));t.getContext('2d').drawImage(cv,0,0,t.width,t.height);cv=t}
+  const r=(p.rot||0)%4;
+  if(r){const t=mk(r%2?cv.height:cv.width,r%2?cv.width:cv.height),x=t.getContext('2d');x.translate(t.width/2,t.height/2);x.rotate(r*Math.PI/2);x.drawImage(cv,-cv.width/2,-cv.height/2);cv=t}
+  return filt(cv,p.enh,mode||'color')}
+function warp(src,c,max){
+  const W=src.width,H=src.height,P=[0,1,2,3].map(i=>[c[i*2]*W,c[i*2+1]*H]),ds=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
+  let w=Math.max(ds(P[0],P[1]),ds(P[3],P[2])),h=Math.max(ds(P[0],P[3]),ds(P[1],P[2]));const s=Math.min(1,max/Math.max(w,h));w=Math.max(2,Math.round(w*s));h=Math.max(2,Math.round(h*s));
+  const[[x0,y0],[x1,y1],[x2,y2],[x3,y3]]=P,dx1=x1-x2,dx2=x3-x2,dx3=x0-x1+x2-x3,dy1=y1-y2,dy2=y3-y2,dy3=y0-y1+y2-y3,den=dx1*dy2-dx2*dy1||1,
+  g=(dx3*dy2-dx2*dy3)/den,k=(dx1*dy3-dx3*dy1)/den,a=x1-x0+g*x1,b=x3-x0+k*x3,d=y1-y0+g*y1,e=y3-y0+k*y3;
+  const sd=src.getContext('2d').getImageData(0,0,W,H).data,o=mk(w,h),ox=o.getContext('2d'),im=ox.createImageData(w,h),od=im.data;
+  for(let j=0;j<h;j++)for(let i=0;i<w;i++){
+    const u=(i+.5)/w,v=(j+.5)/h,q=g*u+k*v+1;let X=(a*u+b*v+x0)/q-.5,Y=(d*u+e*v+y0)/q-.5;
+    X=Math.min(W-1.001,Math.max(0,X));Y=Math.min(H-1.001,Math.max(0,Y));
+    const ix=X|0,iy=Y|0,fx=X-ix,fy=Y-iy,p=(iy*W+ix)*4,o2=(j*w+i)*4;
+    for(let n=0;n<4;n++)od[o2+n]=(sd[p+n]*(1-fx)+sd[p+4+n]*fx)*(1-fy)+(sd[p+W*4+n]*(1-fx)+sd[p+W*4+4+n]*fx)*fy}
+  ox.putImageData(im,0,0);return o}
+function filt(cv,enh,mode){
+  if(!enh&&mode=='color')return cv;
+  const x=cv.getContext('2d'),im=x.getImageData(0,0,cv.width,cv.height),d=im.data,n=d.length;let lo=0,hi=255;
+  if(enh){const h=new Uint32Array(256),N=n/4;for(let i=0;i<n;i+=4)h[(d[i]*77+d[i+1]*150+d[i+2]*29)>>8]++;let a=0,f=0;for(let v=0;v<256;v++){a+=h[v];if(!f&&a>N*.02){lo=v;f=1}if(a>N*.97){hi=v;break}}if(hi-lo<30){lo=0;hi=255}}
+  const k=255/(hi-lo||1);
+  for(let i=0;i<n;i+=4){let r=(d[i]-lo)*k,g=(d[i+1]-lo)*k,b=(d[i+2]-lo)*k;if(mode!='color'){let y=r*.3+g*.59+b*.11;if(mode=='bw')y=y>150?255:0;r=g=b=y}d[i]=r;d[i+1]=g;d[i+2]=b}
+  x.putImageData(im,0,0);return cv}
+const toBlob=(cv,q)=>new Promise(r=>cv.toBlob(r,'image/jpeg',q)),eff=p=>p.mode||cur.mode,tc=new Map();
+async function pthumb(p){const k=p.id+'.'+p.v+eff(p);if(!tc.has(k)){const cv=await render(p,160,eff(p));tc.set(k,cv.toDataURL('image/jpeg',.6))}return tc.get(k)}
+/* ---- ZIP / PDF ---- */
+const crcT=(()=>{const t=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})(),
+crc=u=>{let c=-1;for(let i=0;i<u.length;i++)c=crcT[(c^u[i])&255]^(c>>>8);return(c^-1)>>>0};
+async function zip(files){
+  const parts=[],cd=[],enc=new TextEncoder();let off=0;
+  for(const f of files){const u=f.b instanceof Blob?new Uint8Array(await f.b.arrayBuffer()):f.b,nm=enc.encode(f.n),c=crc(u),
+    h=new DataView(new ArrayBuffer(30)),e=new DataView(new ArrayBuffer(46));
+    h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(6,0x800,true);h.setUint16(12,0x21,true);h.setUint32(14,c,true);h.setUint32(18,u.length,true);h.setUint32(22,u.length,true);h.setUint16(26,nm.length,true);
+    e.setUint32(0,0x02014b50,true);e.setUint16(4,20,true);e.setUint16(6,20,true);e.setUint16(8,0x800,true);e.setUint16(14,0x21,true);e.setUint32(16,c,true);e.setUint32(20,u.length,true);e.setUint32(24,u.length,true);e.setUint16(28,nm.length,true);e.setUint32(42,off,true);
+    parts.push(h,nm,u);cd.push(e,nm);off+=30+nm.length+u.length}
+  const z=new DataView(new ArrayBuffer(22));z.setUint32(0,0x06054b50,true);z.setUint16(8,files.length,true);z.setUint16(10,files.length,true);z.setUint32(12,cd.reduce((s,x)=>s+x.byteLength,0),true);z.setUint32(16,off,true);
+  return new Blob([...parts,...cd,z],{type:'application/zip'})}
+async function unzip(blob){
+  const b=new Uint8Array(await blob.arrayBuffer()),v=new DataView(b.buffer),m={},dec=new TextDecoder();let o=0;
+  while(o+30<=b.length&&v.getUint32(o,true)===0x04034b50){if(v.getUint16(o+8,true)!==0)throw Error('x');const sz=v.getUint32(o+18,true),nl=v.getUint16(o+26,true),s=o+30+nl+v.getUint16(o+28,true);m[dec.decode(b.subarray(o+30,o+30+nl))]=b.slice(s,s+sz);o=s+sz}
+  return m}
+async function makePdf(imgs){
+  const enc=new TextEncoder(),parts=[],offs=[];let off=0;
+  const add=x=>{const b=typeof x=='string'?enc.encode(x):x;parts.push(b);off+=b.length},obj=(id,s)=>{offs[id]=off;add(id+' 0 obj\n'+s+'\nendobj\n')};
+  add('%PDF-1.4\n');const n=imgs.length;obj(1,'<</Type/Catalog/Pages 2 0 R>>');obj(2,`<</Type/Pages/Count ${n}/Kids[${imgs.map((_,i)=>(3+3*i)+' 0 R').join(' ')}]>>`);
+  for(let i=0;i<n;i++){const m=imgs[i],pw=(m.w*.48).toFixed(1),ph=(m.h*.48).toFixed(1),cs=`q ${pw} 0 0 ${ph} 0 0 cm /I Do Q`,u=new Uint8Array(await m.blob.arrayBuffer());
+    obj(3+3*i,`<</Type/Page/Parent 2 0 R/MediaBox[0 0 ${pw} ${ph}]/Contents ${4+3*i} 0 R/Resources<</XObject<</I ${5+3*i} 0 R>>>>>>`);
+    obj(4+3*i,`<</Length ${cs.length}>>\nstream\n${cs}\nendstream`);
+    offs[5+3*i]=off;add(`${5+3*i} 0 obj\n<</Type/XObject/Subtype/Image/Width ${m.w}/Height ${m.h}/ColorSpace/DeviceRGB/BitsPerComponent 8/Filter/DCTDecode/Length ${u.length}>>\nstream\n`);add(u);add('\nendstream\nendobj\n')}
+  const xo=off,tot=3*n+3;add(`xref\n0 ${tot}\n0000000000 65535 f \n`+offs.slice(1).map(o=>String(o).padStart(10,'0')+' 00000 n \n').join('')+`trailer\n<</Size ${tot}/Root 1 0 R>>\nstartxref\n${xo}\n%%EOF`);
+  return new Blob(parts,{type:'application/pdf'})}
+function dl(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),6e4)}
+async function share(blob,name){const f=new File([blob],name,{type:blob.type});if(navigator.canShare&&navigator.canShare({files:[f]})){try{await navigator.share({files:[f]});return}catch(e){if(e.name=='AbortError')return}}dl(blob,name)}
+/* ---- 保存 ---- */
+const newDoc=()=>{const n=Date.now();return{id:crypto.randomUUID(),name:'',cat:'未分類',mode:'color',created:n,updated:n,status:'draft',pages:[]}};
+const sv=()=>{clearTimeout(timer);timer=setTimeout(save,700)};
+async function save(){clearTimeout(timer);if(!cur||!cur.pages.length)return;try{cur.updated=Date.now();cur.thumb=await toBlob(await render(cur.pages[0],220,eff(cur.pages[0])),.7);await put(cur)}catch(e){toast('保存できませんでした。空き容量を確認してください')}}
+const touch=p=>{p.v++;sv();drawEdit()};
+async function adopt(blobs){
+  let n=0;
+  for(const b of blobs){try{(await createImageBitmap(b)).close()}catch(e){toast('この画像形式は読み込めません。JPEGまたはPNGでお試しください');continue}
+    if(rt!=null){const p=cur.pages[rt];p.orig=b;p.corners=DEF.slice();p.rot=0;p.v++;rt=null}
+    else{if(!cur.pages.length){cur.name=cur.name||stamp(Date.now());navigator.storage?.persist?.()}cur.pages.push({id:crypto.randomUUID(),orig:b,corners:DEF.slice(),rot:0,enh:true,mode:null,v:0});sel=cur.pages.length-1}
+    cur.status='draft';n++}
+  pend=null;if(n){await save()}drawEdit()}
+async function leave(){await save();cur=null;pend=null;rt=null}
+/* ---- 画面 ---- */
+function go(v){view=v;['list','scan','set'].forEach(k=>$('t-'+k)?.classList.toggle('on',(v=='set'?'set':'list')==k));draw()}
+function draw(){({list:drawList,edit:drawEdit,export:drawExport,set:drawSet})[view]()}
+const foot='<footer>Wel (Be)　<a href="https://ofuse.me/f3a8ad6a" target="_blank" rel="noopener">改善のアイディア・応援はこちら</a><br><a href="privacy.html">プライバシーについて</a></footer>';
+async function drawList(){
+  app.innerHTML=`<button class="pri" data-a="t-scan" style="width:100%">スキャンを始める</button>
+  <div class="row"><input id="q" type="search" placeholder="書類名で検索" value="${esc(F.q)}"></div>
+  <div class="row"><select id="fcat"></select><select id="fs">${opts({upd:'更新日時の新しい順',cre:'作成日の新しい順',name:'名前順'},F.sort)}</select></div>
+  <div class="row"><label style="margin:0">更新日（から）<input id="ff" type="date" value="${F.from}"></label><label style="margin:0">更新日（まで）<input id="ft" type="date" value="${F.to}"></label></div>
+  <div id="li"></div>${foot}`;
+  const ds=await all();CATS=[...new Set(['未分類',...ds.map(d=>d.cat)])];
+  $('fcat').innerHTML=`<option value="">すべてのカテゴリ</option>`+CATS.map(c=>`<option${c==F.cat?' selected':''}>${esc(c)}</option>`).join('');
+  urls.forEach(URL.revokeObjectURL);urls=[];
+  let l=ds.filter(d=>(!only||only.includes(d.id))&&d.name.toLowerCase().includes(F.q.toLowerCase())&&(!F.cat||d.cat==F.cat)&&(!F.from||d.updated>=new Date(F.from+'T00:00').getTime())&&(!F.to||d.updated<=new Date(F.to+'T23:59:59').getTime()));
+  l.sort((a,b)=>F.sort=='name'?a.name.localeCompare(b.name,'ja'):F.sort=='cre'?b.created-a.created:b.updated-a.updated);
+  $('li').innerHTML=(only?'<p class="sub">今回復元した書類だけを表示中 <button data-a="all" style="min-height:36px">すべて表示</button></p>':'')+(l.length?l.map(d=>{const u=d.thumb?URL.createObjectURL(d.thumb):'';u&&urls.push(u);return`<div class="item"><div class="th fr" style="${u?`background-image:url(${u})`:''}"></div><div class="m" data-a="open" data-id="${d.id}" style="cursor:pointer"><b>${esc(d.name)}</b><span class="sub">${fmt(d.updated)}</span><br><span class="tag">${d.status=='draft'?'下書き':'書き出し済み'}</span> <span class="sub">${esc(d.cat)}・${d.pages.length||'-'}枚</span></div><button class="dg" data-a="rm" data-id="${d.id}" aria-label="削除">削除</button></div>`}).join(''):`<div class="empty fr">書類がありません。<br>「スキャンを始める」から最初の1枚を撮影しましょう。</div>`)}
+async function drawEdit(){
+  const t=++tok,p=cur.pages[sel],ex=cur.status=='exported'&&!cur.pages.length;
+  app.innerHTML=`<div class="row"><button data-a="back" style="flex:none">← 書類</button></div>
+  <input id="nm" value="${esc(cur.name)}" placeholder="書類名" aria-label="書類名">
+  <div class="row"><input id="ct" list="cl" value="${esc(cur.cat)}" aria-label="カテゴリ"><datalist id="cl">${CATS.map(c=>`<option value="${esc(c)}">`).join('')}</datalist><select id="dm" aria-label="書類全体の色モード">${opts(MODES,cur.mode)}</select></div>
+  ${pend?`<div class="pv"><span class="fr"><canvas id="pv"></canvas></span></div><div class="row"><button data-a="cancelp">やめる</button><button data-a="retakep">撮り直す</button><button class="pri" data-a="adopt">このページを採用</button></div>`
+  :p?`<div class="pv"><span class="fr"><canvas id="pv"></canvas></span></div>
+    <p class="sub" style="text-align:center">ページ ${sel+1} / ${cur.pages.length}</p>
+    <div class="tools"><button data-a="crop">台形補正</button><button data-a="enh">${p.enh?'補正を戻す':'自動補正'}</button><button data-a="rot">回転</button><button data-a="left">◀ 前へ</button><button data-a="right">後ろへ ▶</button><button data-a="retake">撮り直し</button></div>
+    <div class="row"><select id="pm" aria-label="このページの色">${opts({'':'このページの色：書類に従う',...MODES},p.mode||'')}</select><button data-a="enhall">全ページを自動補正</button></div>
+    <div class="strip">${cur.pages.map((q,i)=>`<img class="sp fr ${i==sel?'on':''}" data-a="sel" data-i="${i}" alt="ページ${i+1}">`).join('')}</div>`
+  :`<div class="empty fr">${ex?'書き出し済みです。元画像は削除されています。<br>端末に保存したPDF/JPEGはファイル管理アプリから開けます。':'ページがありません。撮影するか、写真を取り込みます。<br><span class="sub">カメラが使えない場合は、ブラウザ設定でカメラの許可を確認するか、写真を取り込んでください。</span>'}</div>`}
+  ${pend?'':`<div class="row"><button data-a="cam">撮影</button><button data-a="pick">写真を取り込む</button></div>${cur.pages.length?'<button class="pri" data-a="export" style="width:100%">書き出しへ進む</button>':''}<p style="text-align:center"><button class="dg" data-a="rmcur" style="min-height:36px">この書類を破棄</button></p>`}`;
+  const cv=$('pv');
+  try{if(cv){const c=await render(pend?{orig:pend,corners:DEF,rot:0,enh:true}:p,1100,pend?'color':eff(p));if(t!=tok)return;cv.width=c.width;cv.height=c.height;cv.getContext('2d').drawImage(c,0,0)}}catch(e){toast('画像を処理できませんでした（メモリ不足の可能性があります）')}
+  fillStrip(t)}
+function fillStrip(t){document.querySelectorAll('.sp').forEach(im=>{pthumb(cur.pages[im.dataset.i]).then(u=>{if(t==tok)im.src=u}).catch(()=>{})})}
+function drawExport(){
+  const t=++tok;app.innerHTML=`<div class="row"><button data-a="toedit" style="flex:none">← 編集に戻る</button></div><h2>書き出し</h2>
+  <label>ファイル名<input id="en" value="${esc(cur.name)}"></label>
+  <label>形式<select id="ef"><option value="pdf">PDF（全ページを1ファイル）</option><option value="jpg">JPEG（複数ページはZIP）</option></select></label>
+  <label>画質<select id="eq"><option value=".92">High</option><option value=".8" selected>Standard</option><option value=".6">Smaller file</option></select></label>
+  <label>色モード<select id="em"><option value="">書類の設定に従う（${MODES[cur.mode]}）</option>${opts(MODES)}</select></label>
+  <p class="sub">ページ順（変更は編集画面で）</p><div class="strip">${cur.pages.map((q,i)=>`<img class="sp fr" data-i="${i}" alt="${i+1}ページ目">`).join('')}</div>
+  <button class="pri" data-a="run" style="width:100%;margin-top:12px">全${cur.pages.length}ページを確認して書き出す</button><div id="res"></div>`;fillStrip(t)}
+function outHtml(){return`<div class="card"><b>${esc(out.name)}</b><br><span class="sub">${mb(out.blob.size)}</span><div class="row"><button class="pri" data-a="share">共有</button><button data-a="dl">ダウンロード</button></div>${out.exp?`<p>端末への保存はできましたか？</p><div class="row"><button data-a="s1">保存できました</button><button data-a="s2">まだ保存できていません</button><button data-a="s3">後で確認する</button></div><p class="sub">「保存できました」を選ぶと、元画像と編集情報を削除します（書類名とサムネイルは残ります）。</p>`:'<p class="sub">暗号化されていません。保管と共有先にご注意ください。</p>'}</div>`}
+async function run(){
+  const r=$('res'),name=($('en').value.trim()||cur.name).replace(/[\\/:*?"<>|]/g,'_'),f=$('ef').value,q=+$('eq').value,m=$('em').value;let imgs=[];
+  try{for(let i=0;i<cur.pages.length;i++){r.textContent=`処理中… ${i+1} / ${cur.pages.length}`;const p=cur.pages[i],c=await render(p,2400,m||eff(p));imgs.push({blob:await toBlob(c,q),w:c.width,h:c.height});c.width=c.height=0}
+    let blob,fn;if(f=='pdf'){blob=await makePdf(imgs);fn=name+'.pdf'}else if(imgs.length==1){blob=imgs[0].blob;fn=name+'.jpg'}else{blob=await zip(imgs.map((x,i)=>({n:`${name}_${pad(i+1)}.jpg`,b:x.blob})));fn=name+'.zip'}
+    out={blob,name:fn,exp:1};r.innerHTML=outHtml()}catch(e){r.textContent='書き出しに失敗しました。ページ数を減らすか画質を下げて再度お試しください。'}}
+async function drawSet(){
+  app.innerHTML=`<h2>設定とヘルプ</h2>
+  <div class="card"><b>データの扱い</b><p class="sub">書類はこの端末のブラウザ内に保存され、外部には送信されません（アクセス解析は閲覧数のみ）。ブラウザの強制終了・容量不足・データ消去で失われることがあるため、大切な書類は書き出してください。書き出し後に「保存できました」を選ぶと元画像を削除して容量を空けます。</p><a href="privacy.html">プライバシーの詳細</a></div>
+  <div class="card"><b>バックアップ</b><p class="sub">アプリ内のデータをZIPにまとめます。暗号化されません。</p><div class="row"><button data-a="bk">バックアップを作成</button><button data-a="rs">ZIPから復元</button></div><div id="res"></div></div>
+  <div class="card"><b>全データの削除</b><p class="sub">端末に保存済みのPDF/JPEGは削除されません。</p><button class="dg" data-a="rmall">アプリの全データを削除</button></div>${foot}`}
+async function backup(){
+  const ds=await all(),est=ds.reduce((s,d)=>s+d.pages.reduce((a,p)=>a+p.orig.size,0),0);
+  if(!ds.length)return toast('バックアップする書類がありません');
+  if(await ask(`概算サイズ：約${mb(est)}。ZIPは暗号化されません。端末の空き容量が足りない場合は失敗することがあります。作成しますか？`,['中止','作成'])!=1)return;
+  try{$('res').textContent='作成中…';const files=[],man={app:'ScanPocket',v:1,docs:[]};
+    ds.forEach((d,i)=>{const md={id:d.id,name:d.name,cat:d.cat,mode:d.mode,created:d.created,updated:d.updated,status:d.status,thumb:null,pages:[]};
+      if(d.thumb){md.thumb=`d${i}/t.jpg`;files.push({n:md.thumb,b:d.thumb})}
+      d.pages.forEach((p,j)=>{const f=`d${i}/p${j}.bin`;files.push({n:f,b:p.orig});md.pages.push({f,type:p.orig.type,c:p.corners,rot:p.rot,enh:p.enh,mode:p.mode})});man.docs.push(md)});
+    files.unshift({n:'manifest.json',b:new TextEncoder().encode(JSON.stringify(man))});
+    out={blob:await zip(files),name:`ScanPocket_backup_${stamp(Date.now())}.zip`};$('res').innerHTML=outHtml()}catch(e){$('res').textContent='バックアップを作成できませんでした。空き容量を確認してください。'}}
+async function readBk(f){
+  const r=$('res');try{const m=await unzip(f),man=JSON.parse(new TextDecoder().decode(m['manifest.json']));
+    if(man.app!='ScanPocket'||!Array.isArray(man.docs))throw 1;for(const d of man.docs)for(const p of d.pages)if(!m[p.f])throw 2;restoreM={m,man};
+    r.innerHTML=`<div class="card"><b>復元する書類を選択</b><div class="row"><button data-a="ka">すべて</button><button data-a="kd">下書き</button><button data-a="ke">書き出し済み</button></div>${man.docs.map((d,i)=>`<label style="color:var(--ink)"><input type="checkbox" class="rk" data-i="${i}" data-s="${d.status}" style="width:auto;min-height:0"> ${esc(d.name)} <span class="sub">${d.status=='draft'?'下書き（画像・編集情報を復元）':'書き出し済み（情報のみ）'}・${d.pages.length}枚</span></label>`).join('')}<p class="sub">既存の書類は上書きしません。同名の書類は自動で名前を変えます。</p><button class="pri" data-a="doRs" style="width:100%">選択した書類を復元</button></div>`}
+  catch(e){r.textContent='復元できません：このアプリで作成した正常なバックアップZIPではありません（破損、または必須データが不足しています）。'}}
+async function doRestore(){
+  const ids=[...document.querySelectorAll('.rk:checked')].map(c=>+c.dataset.i);if(!ids.length)return toast('書類を選択してください');
+  const {m,man}=restoreM,ex=await all(),names=new Set(ex.map(d=>d.name)),cats=new Map(ex.map(d=>[d.cat.trim().toLowerCase(),d.cat])),got=[];
+  try{for(const i of ids){const d=man.docs[i];let nm=d.name,n=2;while(names.has(nm))nm=`${d.name} (${n++})`;names.add(nm);const k=d.cat.trim().toLowerCase();if(!cats.has(k))cats.set(k,d.cat.trim()||'未分類');
+    const doc={id:crypto.randomUUID(),name:nm,cat:cats.get(k)||'未分類',mode:d.mode,created:d.created,updated:d.updated,status:d.status,thumb:d.thumb&&m[d.thumb]?new Blob([m[d.thumb]],{type:'image/jpeg'}):null,
+      pages:d.pages.map(p=>({id:crypto.randomUUID(),orig:new Blob([m[p.f]],{type:p.type}),corners:p.c,rot:p.rot,enh:p.enh,mode:p.mode,v:0}))};await put(doc);got.push(doc.id)}
+    only=got;restoreM=null;toast(`${got.length}件を復元しました`);go('list')}
+  catch(e){toast(`復元が途中で止まりました（${got.length}件を復元済み）。既存データは変更していません`)}}
+/* ---- 台形補正 ---- */
+async function crop(p){
+  const bm=await createImageBitmap(p.orig,{imageOrientation:'from-image'}),sc=Math.min((innerWidth-24)/bm.width,(innerHeight-150)/bm.height),W=Math.round(bm.width*sc),H=Math.round(bm.height*sc),ov=$('crop');
+  ov.hidden=false;ov.innerHTML=`<canvas id="cc" width="${W}" height="${H}"></canvas><p class="sub">四隅の丸をドラッグして書類に合わせます</p><div class="row" style="width:${Math.max(W,300)}px"><button id="cr">リセット</button><button id="cx">キャンセル</button><button id="co" class="pri">適用</button></div>`;
+  const cv=$('cc'),x=cv.getContext('2d');let pt=p.corners.slice(),k=-1;
+  const dr=()=>{x.drawImage(bm,0,0,W,H);x.beginPath();for(let i=0;i<4;i++)x.lineTo(pt[i*2]*W,pt[i*2+1]*H);x.closePath();x.fillStyle='rgba(15,210,180,.18)';x.fill();x.lineWidth=2;x.strokeStyle='#0fd2b4';x.stroke();for(let i=0;i<4;i++){x.beginPath();x.arc(pt[i*2]*W,pt[i*2+1]*H,13,0,7);x.fillStyle='#fff';x.fill();x.stroke()}};
+  const mv=e=>{if(k<0)return;const r=cv.getBoundingClientRect();pt[k*2]=Math.min(1,Math.max(0,(e.clientX-r.left)/r.width));pt[k*2+1]=Math.min(1,Math.max(0,(e.clientY-r.top)/r.height));dr()};
+  cv.onpointerdown=e=>{cv.setPointerCapture(e.pointerId);const r=cv.getBoundingClientRect(),X=(e.clientX-r.left)/r.width,Y=(e.clientY-r.top)/r.height;let m=9;for(let i=0;i<4;i++){const d=Math.hypot(pt[i*2]-X,pt[i*2+1]-Y);if(d<m){m=d;k=i}}mv(e)};
+  cv.onpointermove=mv;cv.onpointerup=()=>k=-1;dr();
+  return new Promise(res=>{const end=v=>{ov.hidden=true;ov.innerHTML='';bm.close&&bm.close();res(v)};$('cr').onclick=()=>{pt=DEF.slice();dr()};$('cx').onclick=()=>end(null);$('co').onclick=()=>end(pt)})}
+/* ---- 操作 ---- */
+async function act(a,b){
+  const p=cur?.pages[sel];
+  if(a=='t-list'){await leave();only=null;go('list')}
+  else if(a=='t-scan'){await leave();cur=newDoc();sel=0;view='edit';draw();$('fc').click()}
+  else if(a=='t-set'){await leave();go('set')}
+  else if(a=='back'){await leave();go('list')}
+  else if(a=='all'){only=null;draw()}
+  else if(a=='open'){cur=await get(b.dataset.id);sel=0;pend=null;view='edit';draw()}
+  else if(a=='rm'){if(await ask('この書類を削除しますか？<br>端末に保存済みのPDF/JPEGは削除されません。',['キャンセル','削除'])==1){await del(b.dataset.id);toast('削除しました');draw()}}
+  else if(a=='rmcur'){if(await ask('この書類を破棄しますか？<br>元画像と編集内容は元に戻せません。端末に保存済みのPDF/JPEGは削除されません。',['キャンセル','破棄'])==1){await del(cur.id);cur=null;go('list')}}
+  else if(a=='rmall'){if(await ask('アプリの全データ（書類・画像・サムネイル）を削除しますか？<br>端末に保存済みのPDF/JPEGは削除されません。元に戻せません。',['キャンセル','すべて削除'])==1){await clr();cur=null;toast('全データを削除しました');draw()}}
+  else if(a=='cam'){rt=null;$('fc').click()}else if(a=='pick'){rt=null;$('fp').click()}
+  else if(a=='adopt')adopt([pend]);
+  else if(a=='retakep'){pend=null;$('fc').click()}else if(a=='cancelp'){pend=null;rt=null;drawEdit()}
+  else if(a=='sel'){sel=+b.dataset.i;drawEdit()}
+  else if(a=='crop'){const c=await crop(p);if(c){p.corners=c;touch(p)}}
+  else if(a=='enh'){p.enh=!p.enh;touch(p)}
+  else if(a=='enhall'){cur.pages.forEach(q=>{q.enh=true;q.v++});sv();drawEdit()}
+  else if(a=='rot'){p.rot=((p.rot||0)+1)%4;touch(p)}
+  else if(a=='left'&&sel>0){[cur.pages[sel-1],cur.pages[sel]]=[cur.pages[sel],cur.pages[sel-1]];sel--;sv();drawEdit()}
+  else if(a=='right'&&sel<cur.pages.length-1){[cur.pages[sel+1],cur.pages[sel]]=[cur.pages[sel],cur.pages[sel+1]];sel++;sv();drawEdit()}
+  else if(a=='retake'){rt=sel;$('fc').click()}
+  else if(a=='export'){await save();view='export';draw()}else if(a=='toedit'){view='edit';draw()}
+  else if(a=='run')run();else if(a=='share')share(out.blob,out.name);else if(a=='dl')dl(out.blob,out.name);
+  else if(a=='s1'){cur.pages=[];cur.status='exported';cur.updated=Date.now();try{await put(cur);toast('元画像と編集情報を削除しました')}catch(e){toast('保存に失敗しました')}$('res').innerHTML=outHtml().replace(/<p>端末.*<\/p><div class="row"><button data-a="s1".*?<\/div><p class="sub">「保存.*?<\/p>/,'<p>書き出し済みにしました。</p>')}
+  else if(a=='s2'||a=='s3'){cur.status='draft';await save();toast(a=='s2'?'元画像を保持しました。再度書き出せます':'元画像を保持しました。あとで確認できます')}
+  else if(a=='bk')backup();else if(a=='rs')$('fr').click();
+  else if(a=='ka'||a=='kd'||a=='ke')document.querySelectorAll('.rk').forEach(c=>c.checked=a=='ka'||(a=='kd')==(c.dataset.s=='draft'))
+  else if(a=='doRs')doRestore()}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(b)act(b.dataset.a,b)});
+app.addEventListener('input',e=>{const i=e.target.id;
+  if(i=='nm'){cur.name=e.target.value;sv()}else if(i=='ct'){cur.cat=e.target.value.trim()||'未分類';sv()}
+  else if(i=='q'){F.q=e.target.value;drawList()}});
+app.addEventListener('change',e=>{const i=e.target.id;
+  if(i=='dm'){cur.mode=e.target.value;sv();drawEdit()}else if(i=='pm'){cur.pages[sel].mode=e.target.value||null;touch(cur.pages[sel])}
+  else if(i=='fcat'){F.cat=e.target.value;drawList()}else if(i=='fs'){F.sort=e.target.value;drawList()}else if(i=='ff'){F.from=e.target.value;drawList()}else if(i=='ft'){F.to=e.target.value;drawList()}});
+$('fc').onchange=e=>{const f=e.target.files[0];e.target.value='';if(f){pend=f;drawEdit()}};
+$('fp').onchange=e=>{const fs=[...e.target.files];e.target.value='';if(fs.length)adopt(fs)};
+$('fr').onchange=e=>{const f=e.target.files[0];e.target.value='';if(f)readBk(f)};
+document.addEventListener('visibilitychange',()=>{if(document.hidden)save()});
+/* ---- 起動 ---- */
+(async()=>{go('list');
+  if(!localStorage.getItem('sp_seen')){await ask('<b>ScanPocketへようこそ</b><br>書類を撮影して補正し、PDF/JPEGで書き出せます。画像は端末のブラウザ内だけに保存され、外部へ送信されません。ブラウザデータを消去すると下書きも消えるので、書き出したファイルは端末に保存してください。',['はじめる']);localStorage.setItem('sp_seen',1)}})();
+let upd=0;if('serviceWorker'in navigator){navigator.serviceWorker.register('sw.js').then(r=>{r.onupdatefound=()=>{const w=r.installing;w.onstatechange=async()=>{if(w.state=='installed'&&navigator.serviceWorker.controller&&await ask('新しいバージョンがあります。下書きは保持されます。更新しますか？',['あとで','更新'])==1){await save();upd=1;w.postMessage('skip')}}}}).catch(()=>{});navigator.serviceWorker.addEventListener('controllerchange',()=>{if(upd)location.reload()})}
+</script>
+<script data-goatcounter="https://wel-be.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</body>
+</html>
